@@ -1,10 +1,13 @@
 """
-Outil Email — envoi d'emails aux prospects via iCloud SMTP.
-Utilise le mot de passe d'application Apple (pas le mot de passe principal).
+Outil Email — envoi d'emails aux prospects via Gmail SMTP.
+Utilise le mot de passe d'application Google (pas le mot de passe principal).
 
 Paramètres dans .env :
-  ICLOUD_EMAIL        = aubryetienne@icloud.com
-  ICLOUD_APP_PASSWORD = xxxx-xxxx-xxxx-xxxx
+  GMAIL_EMAIL        = etienne06080608@gmail.com
+  GMAIL_APP_PASSWORD = xxxx xxxx xxxx xxxx  (mot de passe d'application Google)
+
+Si le port SMTP est bloqué (hébergeur cloud), l'email est envoyé
+automatiquement en fallback sur Telegram.
 """
 
 from __future__ import annotations
@@ -14,13 +17,13 @@ import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
-_SMTP_HOST = "smtp.mail.me.com"
+_SMTP_HOST = "smtp.gmail.com"
 _SMTP_PORT = 587
 
 
 def _get_credentials() -> tuple[str, str]:
-    email = os.environ.get("ICLOUD_EMAIL", "")
-    password = os.environ.get("ICLOUD_APP_PASSWORD", "")
+    email = os.environ.get("GMAIL_EMAIL", "")
+    password = os.environ.get("GMAIL_APP_PASSWORD", "")
     return email, password
 
 
