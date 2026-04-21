@@ -1,0 +1,5 @@
+agents/**/__pycache__/
+agents/**/*.pyc
+agents/.env
+.env
+agents/data/bot_state.json
