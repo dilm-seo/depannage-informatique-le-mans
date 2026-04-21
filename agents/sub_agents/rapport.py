@@ -1,83 +1,79 @@
-"""Agent Rapport — compilation et génération du compte-rendu journalier."""
+"""Chef d'Équipe Rapport — compilation du compte-rendu journalier final."""
 
 from datetime import date
+
 import anthropic
-from agents.config import SUBAGENT_MODEL, RAPPORT_SYSTEM
+
+from agents.config import CHEF_MODEL, CHEF_RAPPORT_SYSTEM, BUSINESS
+from agents.sub_agents.base import ChefEquipe, RapportEquipe
 from agents.utils import logger
 
+# Noms français pour l'horodatage du rapport
+_JOURS_FR  = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
+_MOIS_FR   = ["janvier", "février", "mars", "avril", "mai", "juin",
+               "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
 
-def run(
-    client: anthropic.Anthropic,
-    planning: str,
-    prospection: str,
-    strategie: str,
-    contexte_general: str,
-) -> str:
+
+class ChefEquipeRapport(ChefEquipe):
     """
-    Compile toutes les données et génère le compte-rendu journalier final.
+    Chef d'Équipe Rapport — reçoit les 3 rapports validés + la synthèse du
+    Superviseur, puis génère le compte-rendu journalier final en Markdown.
 
-    Args:
-        client: Instance Anthropic partagée
-        planning: Résultat de l'agent planification
-        prospection: Résultat de l'agent prospection
-        strategie: Résultat de l'agent stratégie
-        contexte_general: Contexte général de la journée fourni par l'utilisateur
-
-    Returns:
-        Compte-rendu journalier complet en Markdown
+    Contrairement aux autres chefs, il est appelé directement par le Superviseur
+    via `compiler_rapport_final` et reçoit les données compilées.
     """
-    logger.agent("RAPPORT", "Compilation du compte-rendu journalier...")
 
-    today = date.today()
-    # Noms de jours et mois en français
-    jours_fr = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"]
-    mois_fr = [
-        "janvier", "février", "mars", "avril", "mai", "juin",
-        "juillet", "août", "septembre", "octobre", "novembre", "décembre",
-    ]
-    date_fr = f"{jours_fr[today.weekday()]} {today.day} {mois_fr[today.month - 1]} {today.year}"
+    def __init__(self) -> None:
+        super().__init__(
+            nom="RAPPORT",
+            system_prompt=CHEF_RAPPORT_SYSTEM,
+        )
 
-    user_message = f"""Compile toutes les données des agents et génère le compte-rendu journalier complet pour le {date_fr}.
+    def compiler(
+        self,
+        client: anthropic.Anthropic,
+        rapport_planification: str,
+        rapport_prospection: str,
+        rapport_strategie: str,
+        contexte_general: str,
+        synthese_superviseur: str = "",
+    ) -> str:
+        """
+        Compile les rapports des trois chefs en un compte-rendu final.
 
-═══════════════════════════════════════
-CONTEXTE GÉNÉRAL DE LA JOURNÉE :
-═══════════════════════════════════════
-{contexte_general}
+        Returns:
+            Compte-rendu journalier complet en Markdown
+        """
+        logger.chef("RAPPORT", "Compilation du compte-rendu final…")
 
-═══════════════════════════════════════
-RÉSULTAT AGENT PLANIFICATION :
-═══════════════════════════════════════
-{planning}
+        today = date.today()
+        date_fr = f"{_JOURS_FR[today.weekday()]} {today.day} {_MOIS_FR[today.month - 1]} {today.year}"
 
-═══════════════════════════════════════
-RÉSULTAT AGENT PROSPECTION :
-═══════════════════════════════════════
-{prospection}
+        synthese_block = ""
+        if synthese_superviseur:
+            synthese_block = f"\n\nSYNTHÈSE DU SUPERVISEUR :\n{synthese_superviseur}"
 
-═══════════════════════════════════════
-RÉSULTAT AGENT STRATÉGIE :
-═══════════════════════════════════════
-{strategie}
+        # Directive construite dynamiquement avec les 3 rapports
+        directive = (
+            f"Compile les rapports suivants en un compte-rendu journalier pour le {date_fr}."
+            f"{synthese_block}"
+        )
 
-═══════════════════════════════════════
+        contexte_compile = (
+            f"CONTEXTE GÉNÉRAL DU JOUR :\n{contexte_general}\n\n"
+            f"{'═' * 60}\n"
+            f"RAPPORT CHEF PLANIFICATION :\n{rapport_planification}\n\n"
+            f"{'═' * 60}\n"
+            f"RAPPORT CHEF PROSPECTION :\n{rapport_prospection}\n\n"
+            f"{'═' * 60}\n"
+            f"RAPPORT CHEF STRATÉGIE :\n{rapport_strategie}\n"
+        )
 
-Génère le compte-rendu journalier complet selon la structure définie.
-Intègre toutes les données de manière cohérente et priorisée.
-Le rapport doit être directement utilisable sur le terrain."""
+        result: RapportEquipe = self.run(
+            client=client,
+            directive=directive,
+            contexte=contexte_compile,
+        )
 
-    response = client.messages.create(
-        model=SUBAGENT_MODEL,
-        max_tokens=4096,
-        system=[
-            {
-                "type": "text",
-                "text": RAPPORT_SYSTEM,
-                "cache_control": {"type": "ephemeral"},
-            }
-        ],
-        messages=[{"role": "user", "content": user_message}],
-    )
-
-    result = response.content[0].text
-    logger.success("Agent Rapport terminé — compte-rendu généré")
-    return result
+        logger.chef("RAPPORT", "Compte-rendu généré avec succès")
+        return result.rapport
