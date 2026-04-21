@@ -1,13 +1,14 @@
 """
-Superviseur IA — orchestrateur principal avec flux bidirectionnel.
+Superviseur IA — orchestrateur principal avec boucle d'auto-évaluation.
 
-Flux pour chaque chef d'équipe :
-  1. Superviseur → DIRECTIVE précise (objectifs + critères de succès)
-  2. Chef d'équipe → travaille, recrute des agents si besoin
-  3. Chef d'équipe → RAPPORT au Superviseur (avec liste agents recrutés)
-  4. Superviseur → ÉVALUE : valide OU demande révision avec feedback
-  5. (si révision) Chef d'équipe → rapport révisé
-  6. Superviseur → COMPILE le rapport final une fois tout validé
+Flux de chaque session :
+  0. BILAN     — Lit les stats CRM, injecte dans le contexte
+  1. OBJECTIFS — Fixe des objectifs mesurables pour cette session
+  2. DIRECTIVES — Envoie une directive adaptée à chaque chef d'équipe
+  3. VALIDATION — Évalue chaque rapport, demande révision si nécessaire
+  4. COACHING  — Identifie un point d'amélioration par chef, enregistre
+  5. COMPILATION — Compile le rapport final (usage interne)
+  6. TELEGRAM   — Envoie le résumé concis à Etienne (chiffres + alertes)
 """
 
 from __future__ import annotations
@@ -22,6 +23,7 @@ from agents.sub_agents.prospection   import ChefEquipeProspection
 from agents.sub_agents.strategie     import ChefEquipeStrategie
 from agents.sub_agents.rapport       import ChefEquipeRapport
 from agents.utils import logger
+from agents.tools import crm, telegram
 
 # ─── Outils du Superviseur ────────────────────────────────────────────────────
 
@@ -30,9 +32,8 @@ TOOLS_SUPERVISEUR: list[dict] = [
         "name": "deleguer_mission",
         "description": (
             "Délègue une mission à un chef d'équipe avec une directive précise. "
-            "Le chef d'équipe peut recruter ses propres agents spécialisés, "
-            "puis rend compte avec son rapport et la liste des agents qu'il a utilisés. "
-            "Utilise cet outil pour chaque agent avant d'évaluer son travail."
+            "Le chef d'équipe peut recruter ses propres agents spécialisés. "
+            "Utilise cet outil pour chaque chef d'équipe avant d'évaluer son travail."
         ),
         "input_schema": {
             "type": "object",
@@ -46,14 +47,12 @@ TOOLS_SUPERVISEUR: list[dict] = [
                     "type": "string",
                     "description": (
                         "Directive précise avec objectifs clairs et critères de succès mesurables. "
-                        "Exemple : 'Crée un planning géographiquement optimisé pour 3 interventions "
-                        "Le Mans nord + 1 urgence récupération données à La Flèche. "
-                        "Critères : créneaux de prospection inclus, temps trajet estimé.'"
+                        "Inclure les objectifs de session et les points d'amélioration identifiés."
                     ),
                 },
                 "contexte": {
                     "type": "string",
-                    "description": "Partie du contexte journalier pertinente pour cette mission",
+                    "description": "Contexte journalier pertinent pour cette mission (inclure stats CRM)",
                 },
             },
             "required": ["agent", "directive", "contexte"],
@@ -63,8 +62,7 @@ TOOLS_SUPERVISEUR: list[dict] = [
         "name": "envoyer_feedback",
         "description": (
             "Envoie un feedback constructif à un chef d'équipe pour lui demander "
-            "de réviser son rapport. Utilise quand le rapport ne satisfait pas "
-            "un ou plusieurs critères de ta directive. Max 1 feedback par agent."
+            "de réviser son rapport. Max 1 feedback par agent par session."
         ),
         "input_schema": {
             "type": "object",
@@ -75,10 +73,7 @@ TOOLS_SUPERVISEUR: list[dict] = [
                 },
                 "feedback": {
                     "type": "string",
-                    "description": (
-                        "Feedback précis et constructif : ce qui manque, "
-                        "ce qui doit être corrigé ou approfondi."
-                    ),
+                    "description": "Feedback précis : ce qui manque, ce qui doit être corrigé.",
                 },
                 "directive_originale": {
                     "type": "string",
@@ -90,6 +85,28 @@ TOOLS_SUPERVISEUR: list[dict] = [
                 },
             },
             "required": ["agent", "feedback", "directive_originale", "contexte"],
+        },
+    },
+    {
+        "name": "enregistrer_coaching",
+        "description": (
+            "Enregistre un point d'amélioration identifié lors de l'évaluation des rapports. "
+            "À appeler après l'évaluation de chaque rapport pour alimenter l'apprentissage continu. "
+            "Ces améliorations seront utilisées dès la prochaine session."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "amelioration": {
+                    "type": "string",
+                    "description": (
+                        "Point d'amélioration concret et actionnable. "
+                        "Exemples : 'Secteur BTP génère 0% de réponse, pivoter vers santé', "
+                        "'Objet email trop générique, personnaliser par métier'"
+                    ),
+                },
+            },
+            "required": ["amelioration"],
         },
     },
     {
@@ -120,10 +137,7 @@ TOOLS_SUPERVISEUR: list[dict] = [
                 },
                 "synthese_superviseur": {
                     "type": "string",
-                    "description": (
-                        "Ta synthèse personnelle : observations transversales, "
-                        "priorités absolues, messages clés de la journée."
-                    ),
+                    "description": "Ta synthèse personnelle : observations transversales, priorités.",
                 },
             },
             "required": [
@@ -132,6 +146,42 @@ TOOLS_SUPERVISEUR: list[dict] = [
                 "rapport_prospection",
                 "rapport_strategie",
             ],
+        },
+    },
+    {
+        "name": "envoyer_resume_telegram",
+        "description": (
+            "Envoie le résumé de session à Etienne sur Telegram. "
+            "À appeler UNE SEULE FOIS à la toute fin, après compilation du rapport. "
+            "Inclure les vrais chiffres de la session (emails envoyés, relances, etc.)."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "emails_envoyes": {"type": "integer", "description": "Nombre d'emails envoyés cette session"},
+                "secteurs": {"type": "array", "items": {"type": "string"}, "description": "Secteurs prospectés"},
+                "nouvelles_entreprises_sirene": {"type": "integer", "description": "Nouvelles entreprises SIRENE contactées"},
+                "relances": {"type": "integer", "description": "Nombre de relances effectuées"},
+                "total_crm": {"type": "integer", "description": "Total de contacts dans le CRM"},
+                "taux_reponse": {"type": "number", "description": "Taux de réponse actuel en %"},
+                "amelioration_identifiee": {"type": "string", "description": "Un point d'amélioration concret pour la prochaine session"},
+                "alerte": {"type": "string", "description": "Alerte si prospect a répondu ou urgence (vide sinon)"},
+            },
+            "required": ["emails_envoyes", "secteurs", "nouvelles_entreprises_sirene", "relances", "total_crm", "taux_reponse", "amelioration_identifiee"],
+        },
+    },
+    {
+        "name": "envoyer_alerte_telegram",
+        "description": (
+            "Envoie une alerte urgente à Etienne. "
+            "Utiliser UNIQUEMENT si un prospect a répondu ou si un problème critique est détecté."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "message": {"type": "string", "description": "Message d'alerte concis et actionnable"},
+            },
+            "required": ["message"],
         },
     },
 ]
@@ -144,10 +194,10 @@ class Superviseur:
     Orchestrateur principal.
 
     Maintient l'état des rapports validés et exécute la boucle agentique
-    jusqu'à la compilation du rapport final.
+    jusqu'à la compilation du rapport final et l'envoi du résumé Telegram.
     """
 
-    MAX_ITERATIONS = 20  # garde-fou : 3 agents × (délégation + feedback + révision) + final
+    MAX_ITERATIONS = 25  # 3 agents × (délégation + feedback + révision) + coaching + final + telegram
 
     def __init__(self) -> None:
         self.client = anthropic.Anthropic()
@@ -157,9 +207,8 @@ class Superviseur:
             "strategie":     ChefEquipeStrategie(),
         }
         self._chef_rapport = ChefEquipeRapport()
-        # État interne — rapports validés par le Superviseur
         self._rapports_valides: dict[str, str] = {}
-        self._feedbacks_envoyes: set[str] = set()   # un seul feedback max par agent
+        self._feedbacks_envoyes: set[str] = set()
 
     # ─── Exécution des outils ─────────────────────────────────────────────────
 
@@ -169,67 +218,57 @@ class Superviseur:
             case "deleguer_mission":
                 agent_nom = inputs["agent"]
                 chef = self._chefs[agent_nom]
-
                 logger.supervisor_delegue(agent_nom.upper(), inputs["directive"])
-
                 result = chef.run(
                     client=self.client,
                     directive=inputs["directive"],
                     contexte=inputs["contexte"],
                 )
-
-                # Mémoriser le rapport pour la compilation finale
                 self._rapports_valides[agent_nom] = result.rapport
-
                 recrutes = ", ".join(result.agents_recrutes) or "aucun"
                 logger.supervisor_recu(agent_nom.upper(), result.confidence, recrutes)
-
                 return (
                     f"RAPPORT DU CHEF {agent_nom.upper()} reçu.\n"
-                    f"Agents recrutés par ce chef : {recrutes}\n"
-                    f"Niveau de confiance déclaré : {result.confidence} %\n\n"
+                    f"Agents recrutés : {recrutes}\n"
+                    f"Niveau de confiance : {result.confidence} %\n\n"
                     f"─── CONTENU DU RAPPORT ───\n"
                     f"{result.rapport}"
                 )
 
             case "envoyer_feedback":
                 agent_nom = inputs["agent"]
-
                 if agent_nom in self._feedbacks_envoyes:
                     return (
                         f"[SYSTÈME] Feedback déjà envoyé à {agent_nom}. "
-                        f"Utilise le rapport existant ou valide-le tel quel."
+                        f"Utilise le rapport existant."
                     )
-
                 self._feedbacks_envoyes.add(agent_nom)
                 chef = self._chefs[agent_nom]
-
                 logger.supervisor_feedback(agent_nom.upper(), inputs["feedback"])
-
                 result = chef.run(
                     client=self.client,
                     directive=inputs["directive_originale"],
                     contexte=inputs["contexte"],
                     feedback=inputs["feedback"],
                 )
-
-                # Mise à jour du rapport avec la version révisée
                 self._rapports_valides[agent_nom] = result.rapport
-
                 recrutes = ", ".join(result.agents_recrutes) or "aucun"
                 logger.supervisor_recu(agent_nom.upper(), result.confidence, recrutes)
-
                 return (
                     f"RAPPORT RÉVISÉ DU CHEF {agent_nom.upper()} reçu.\n"
-                    f"Agents recrutés lors de la révision : {recrutes}\n"
+                    f"Agents lors de la révision : {recrutes}\n"
                     f"Niveau de confiance : {result.confidence} %\n\n"
                     f"─── RAPPORT RÉVISÉ ───\n"
                     f"{result.rapport}"
                 )
 
+            case "enregistrer_coaching":
+                amelioration = inputs["amelioration"]
+                logger.supervisor(f"📝 Coaching enregistré : {amelioration[:80]}")
+                return crm.enregistrer_amelioration(amelioration)
+
             case "compiler_rapport_final":
                 logger.supervisor("Compilation du rapport final en cours…")
-
                 rapport_final = self._chef_rapport.compiler(
                     client=self.client,
                     rapport_planification=inputs["rapport_planification"],
@@ -238,21 +277,40 @@ class Superviseur:
                     contexte_general=inputs["contexte_general"],
                     synthese_superviseur=inputs.get("synthese_superviseur", ""),
                 )
-
                 return rapport_final
+
+            case "envoyer_resume_telegram":
+                logger.supervisor("📊 Envoi résumé Telegram à Etienne…")
+                return telegram.envoyer_resume_session(
+                    emails_envoyes=inputs["emails_envoyes"],
+                    secteurs=inputs["secteurs"],
+                    nouvelles_entreprises_sirene=inputs["nouvelles_entreprises_sirene"],
+                    relances=inputs["relances"],
+                    total_crm=inputs["total_crm"],
+                    taux_reponse=inputs["taux_reponse"],
+                    amelioration_identifiee=inputs["amelioration_identifiee"],
+                    alerte=inputs.get("alerte", ""),
+                )
+
+            case "envoyer_alerte_telegram":
+                logger.supervisor(f"🚨 Alerte Telegram : {inputs['message'][:80]}")
+                return telegram.envoyer_alerte(inputs["message"])
 
             case _:
                 return f"[ERREUR] Outil inconnu : {name}"
 
     # ─── Boucle principale ────────────────────────────────────────────────────
 
-    def run(self, contexte_journee: str) -> str:
+    def run(self, contexte_journee: str = "") -> str:
         """
         Lance la supervision complète de la journée.
 
-        1. Envoie des directives à chaque chef d'équipe
-        2. Évalue et valide (ou révise) chaque rapport
-        3. Compile le compte-rendu final
+        1. Charge les stats CRM pour l'auto-évaluation
+        2. Envoie des directives adaptées à chaque chef d'équipe
+        3. Évalue et valide (ou révise) chaque rapport
+        4. Enregistre les points de coaching
+        5. Compile le compte-rendu final
+        6. Envoie le résumé Telegram à Etienne
 
         Returns:
             Rapport journalier complet en Markdown
@@ -265,18 +323,38 @@ class Superviseur:
 
         logger.divider(f"SUPERVISEUR — {date_fr.upper()}")
 
+        # Charger le bilan CRM pour l'auto-évaluation
+        bilan_crm = crm.get_resume_performance()
+        relances_jour = crm.get_relances_du_jour()
+        logger.supervisor(f"Bilan CRM chargé — {len(relances_jour)} relance(s) prévue(s) aujourd'hui")
+
+        contexte_complet = (
+            f"DATE : {date_fr}\n\n"
+            f"═══════════ BILAN CRM (AUTO-ÉVALUATION) ═══════════\n"
+            f"{bilan_crm}\n"
+            f"Relances à effectuer aujourd'hui : {len(relances_jour)} prospect(s)\n\n"
+        )
+        if contexte_journee:
+            contexte_complet += f"═══════════ CONTEXTE ADDITIONNEL ═══════════\n{contexte_journee}\n\n"
+        if relances_jour:
+            noms_relances = ", ".join(r["nom"] for r in relances_jour[:5])
+            contexte_complet += f"Prospects à relancer : {noms_relances}\n"
+
         messages: list[dict] = [
             {
                 "role": "user",
                 "content": (
                     f"Nous sommes le {date_fr}.\n\n"
-                    f"CONTEXTE DE LA JOURNÉE :\n{contexte_journee}\n\n"
-                    f"Lance ton processus de supervision :\n"
-                    f"1. Analyse le contexte et définis les priorités\n"
-                    f"2. Envoie des DIRECTIVES PRÉCISES à chaque chef d'équipe\n"
-                    f"3. ÉVALUE chaque rapport reçu — valide ou demande révision\n"
-                    f"4. Une fois les 3 rapports validés, compile le rapport final\n\n"
-                    f"Commence maintenant."
+                    f"{contexte_complet}\n"
+                    f"Lance ton processus de supervision autonome :\n"
+                    f"1. BILAN — Analyse les stats CRM ci-dessus\n"
+                    f"2. OBJECTIFS — Fixe des objectifs précis pour cette session\n"
+                    f"3. DIRECTIVES — Envoie une directive adaptée à chaque chef\n"
+                    f"4. VALIDATION — Évalue chaque rapport, demande révision si besoin\n"
+                    f"5. COACHING — Enregistre un point d'amélioration (enregistrer_coaching)\n"
+                    f"6. COMPILATION — Compile le rapport final\n"
+                    f"7. TELEGRAM — Envoie le résumé à Etienne (envoyer_resume_telegram)\n\n"
+                    f"Commence maintenant. Tu travailles en totale autonomie."
                 ),
             }
         ]
@@ -308,7 +386,6 @@ class Superviseur:
                 f"— {len([b for b in response.content if b.type == 'tool_use'])} outil(s)"
             )
 
-            # Afficher les blocs texte (raisonnement visible du superviseur)
             for block in response.content:
                 if block.type == "text" and block.text.strip():
                     for ligne in block.text.strip().splitlines()[:3]:
@@ -330,7 +407,6 @@ class Superviseur:
                 if block.type == "tool_use":
                     result_text = self._execute_tool(block.name, block.input)
 
-                    # Si c'est le rapport final compilé, le stocker
                     if block.name == "compiler_rapport_final":
                         rapport_final = result_text
                         self._rapports_valides["rapport_final"] = result_text
@@ -349,7 +425,6 @@ class Superviseur:
                 logger.warn("Superviseur : aucun outil appelé, stop_reason non end_turn — arrêt")
                 break
 
-        # Fallback : si le rapport final est dans les rapports mémorisés
         if not rapport_final and "rapport_final" in self._rapports_valides:
             rapport_final = self._rapports_valides["rapport_final"]
 

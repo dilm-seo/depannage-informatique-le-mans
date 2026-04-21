@@ -212,12 +212,6 @@ def main() -> None:
     print()
     logger.success(f"Rapport sauvegardé : {chemin_rapport}")
 
-    # Envoi du résumé sur Telegram
-    if os.environ.get("TELEGRAM_BOT_TOKEN") and os.environ.get("TELEGRAM_CHAT_ID"):
-        from agents.tools.telegram import envoyer_rapport_final
-        envoyer_rapport_final(rapport)
-        logger.success("Résumé envoyé sur Telegram")
-
     logger.section("JOURNÉE TRAITÉE")
 
 

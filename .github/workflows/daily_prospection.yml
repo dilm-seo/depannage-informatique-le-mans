@@ -1,19 +1,24 @@
-name: Fix72 — Prospection Journalière Automatique
+name: Fix72 — Prospection Journalière Autonome
 
 on:
   schedule:
-    # Tous les jours à 8h00 heure française (7h UTC en hiver, 6h UTC en été)
-    - cron: '0 7 * * 1-6'   # Lundi–Samedi 8h (hiver)
-  workflow_dispatch:          # Lancement manuel possible depuis GitHub
+    # Lundi–Samedi à 8h00 heure française (7h UTC hiver, 6h UTC été)
+    - cron: '0 7 * * 1-6'
+  workflow_dispatch:  # Déclenchement manuel depuis GitHub
 
 jobs:
   prospection:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
+
+    permissions:
+      contents: write  # nécessaire pour commit/push du CRM
 
     steps:
       - name: Checkout du code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Installation de Python 3.11
         uses: actions/setup-python@v5
@@ -32,12 +37,25 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
         run: |
-          python -m agents.main --contexte "Journée de prospection automatique Fix72. Objectif : trouver et contacter 5 nouveaux prospects qualifiés dans la Sarthe (artisans, professions libérales, TPE). Envoyer chaque prospect sur Telegram d'Etienne avec le SMS prêt à envoyer."
+          python -m agents.main
 
-      - name: Sauvegarde du rapport dans les artifacts
+      - name: Commit et push du CRM mis à jour
+        if: always()
+        run: |
+          git config user.name "Fix72 AI Agents"
+          git config user.email "aubryetienne@icloud.com"
+          git add agents/data/crm.json
+          if git diff --staged --quiet; then
+            echo "CRM inchangé — aucun commit nécessaire"
+          else
+            git commit -m "chore: mise à jour CRM — session $(date +%Y-%m-%d)"
+            git push origin HEAD
+          fi
+
+      - name: Sauvegarde du rapport
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: rapport-${{ github.run_number }}
+          name: rapport-${{ github.run_number }}-${{ github.run_attempt }}
           path: agents/rapports/
           retention-days: 30

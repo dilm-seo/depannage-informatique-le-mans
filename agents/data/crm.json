@@ -1,0 +1,18 @@
+{
+  "contacts": [],
+  "stats": {
+    "total_contactes": 0,
+    "reponses": 0,
+    "convertis": 0,
+    "par_secteur": {},
+    "par_canal": {},
+    "par_source": {}
+  },
+  "objectifs": {
+    "contacts_semaine": 40,
+    "taux_reponse_cible": 8,
+    "conversions_mois": 5
+  },
+  "ameliorations": [],
+  "derniere_session": null
+}

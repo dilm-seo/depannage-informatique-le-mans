@@ -164,7 +164,19 @@ OUTIL_RECHERCHE_ENTREPRISES: dict = {
     },
 }
 
-# Liste complète des outils pour les workers de prospection (web + Telegram + Email)
-from agents.tools.telegram import OUTIL_TELEGRAM
+# Liste complète des outils pour les workers de prospection
 from agents.tools.email import OUTIL_EMAIL
-OUTILS_PROSPECTION: list[dict] = [OUTIL_RECHERCHE_WEB, OUTIL_RECHERCHE_ENTREPRISES, OUTIL_TELEGRAM, OUTIL_EMAIL]
+from agents.tools.telegram import OUTIL_TELEGRAM_ALERTE
+from agents.tools.crm import OUTIL_CRM_AJOUTER, OUTIL_CRM_VERIFIER, OUTIL_CRM_STATS
+from agents.tools.sirene import OUTIL_SIRENE
+
+OUTILS_PROSPECTION: list[dict] = [
+    OUTIL_SIRENE,                   # 1. Nouvelles entreprises Sarthe (priorité absolue)
+    OUTIL_RECHERCHE_WEB,            # 2. Recherche web DuckDuckGo
+    OUTIL_RECHERCHE_ENTREPRISES,    # 3. Entreprises locales par secteur
+    OUTIL_EMAIL,                    # 4. Envoi email au prospect
+    OUTIL_CRM_VERIFIER,             # 5. Vérifier si déjà contacté (AVANT chaque envoi)
+    OUTIL_CRM_AJOUTER,              # 6. Enregistrer après envoi
+    OUTIL_CRM_STATS,                # 7. Consulter les stats de performance
+    OUTIL_TELEGRAM_ALERTE,          # 8. Alerte urgente (prospect qui répond, etc.)
+]
