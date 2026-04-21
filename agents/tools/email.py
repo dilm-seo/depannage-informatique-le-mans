@@ -64,17 +64,34 @@ def envoyer_email_prospect(
     msg.attach(MIMEText(corps_complet, "plain", "utf-8"))
 
     try:
-        with smtplib.SMTP(_SMTP_HOST, _SMTP_PORT, timeout=15) as server:
+        with smtplib.SMTP(_SMTP_HOST, _SMTP_PORT, timeout=10) as server:
             server.starttls()
             server.login(expediteur, password)
             server.send_message(msg)
-        return f"Email envoyé avec succès à {destinataire_nom} <{destinataire_email}>"
+        return f"✅ Email envoyé avec succès à {destinataire_nom} <{destinataire_email}>"
     except smtplib.SMTPAuthenticationError:
         return "[ERREUR] Authentification iCloud échouée — vérifie le mot de passe d'application."
-    except TimeoutError:
-        return "[ERREUR] Timeout SMTP — le port 587 est peut-être bloqué sur ce réseau. L'email sera envoyé depuis ton ordinateur."
-    except Exception as e:
-        return f"[ERREUR] Envoi email échoué : {e}"
+    except Exception:
+        # Fallback : envoyer le brouillon sur Telegram si SMTP bloqué
+        return _fallback_telegram(destinataire_nom, destinataire_email, sujet, corps_complet)
+
+
+def _fallback_telegram(nom: str, email: str, sujet: str, corps: str) -> str:
+    """SMTP indisponible — envoie le brouillon d'email sur Telegram."""
+    from agents.tools.telegram import envoyer_message
+    texte = (
+        f"📧 *Email à envoyer — SMTP indisponible*\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"*À :* {nom}\n"
+        f"*Adresse :* `{email}`\n"
+        f"*Objet :* {sujet}\n\n"
+        f"*Corps du message :*\n"
+        f"```\n{corps[:800]}\n```\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"_Copie et envoie depuis ton client email._"
+    )
+    result = envoyer_message(texte)
+    return f"SMTP bloqué — brouillon envoyé sur Telegram pour {nom} <{email}>"
 
 
 def envoyer_email_interne(sujet: str, corps: str) -> str:

@@ -161,9 +161,13 @@ QUAND RECRUTER :
   → La visibilité digitale est dans la directive → Stratège Réseaux Sociaux
   → Des devis sont en souffrance → Analyste Pipeline
 
-IMPORTANT — DONNÉES RÉELLES :
-  Le Chercheur de Prospects cherche de vraies entreprises avec noms, téléphones et adresses.
-  Donne-lui un secteur précis et une zone géographique pour chaque recherche.
+IMPORTANT — DONNÉES RÉELLES ET CONTACT OBLIGATOIRE :
+  Le Chercheur de Prospects DOIT trouver pour chaque prospect :
+    1. Nom de l'entreprise et secteur
+    2. Numéro de téléphone → envoyer via `envoyer_prospect_telegram`
+    3. Adresse email si trouvée → envoyer via `envoyer_email_prospect`
+  Donne-lui un secteur précis. Il doit envoyer chaque prospect trouvé IMMÉDIATEMENT
+  via les outils Telegram et/ou Email — pas juste les lister dans son rapport.
 
 CONTEXTE COMMERCIAL :
   Technicien : {BUSINESS['owner']} — {BUSINESS['phone']}
@@ -271,5 +275,11 @@ PRINCIPES :
   • Opérationnel : chaque élément doit être applicable immédiatement
   • Réaliste : adapté aux réalités d'une TPE locale unipersonnelle
   • Quantifié : utilise des chiffres, durées et délais quand possible
+
+SI TU AS DES OUTILS DE CONTACT (Telegram, Email) :
+  → Utilise-les ACTIVEMENT pour chaque prospect trouvé — ne te contente pas de lister
+  → Cherche d'abord le téléphone ET l'email de chaque prospect
+  → Envoie via Telegram pour les téléphones, via Email pour les adresses email
+  → Envoie chaque prospect séparément dès qu'il est qualifié
 
 Tu réponds UNIQUEMENT en français."""
