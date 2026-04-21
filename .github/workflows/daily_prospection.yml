@@ -1,0 +1,43 @@
+name: Fix72 — Prospection Journalière Automatique
+
+on:
+  schedule:
+    # Tous les jours à 8h00 heure française (7h UTC en hiver, 6h UTC en été)
+    - cron: '0 7 * * 1-6'   # Lundi–Samedi 8h (hiver)
+  workflow_dispatch:          # Lancement manuel possible depuis GitHub
+
+jobs:
+  prospection:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Installation de Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installation des dépendances
+        run: pip install -r agents/requirements.txt
+
+      - name: Lancement du système d'agents Fix72
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GMAIL_EMAIL: ${{ secrets.GMAIL_EMAIL }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          BREVO_API_KEY: ${{ secrets.BREVO_API_KEY }}
+        run: |
+          python -m agents.main --contexte "Journée de prospection automatique Fix72. Objectif : trouver et contacter 5 nouveaux prospects qualifiés dans la Sarthe (artisans, professions libérales, TPE). Envoyer chaque prospect sur Telegram d'Etienne avec le SMS prêt à envoyer."
+
+      - name: Sauvegarde du rapport dans les artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rapport-${{ github.run_number }}
+          path: agents/rapports/
+          retention-days: 30
