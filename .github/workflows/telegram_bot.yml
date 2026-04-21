@@ -1,0 +1,41 @@
+name: Fix72 — Bot Telegram (Conversations avec le Superviseur)
+
+on:
+  schedule:
+    # Toutes les 5 minutes, de 6h à 21h UTC (= 7h-22h heure française)
+    # Répond à Etienne en moins de 5 minutes depuis son iPhone
+    - cron: '*/5 6-21 * * *'
+  workflow_dispatch:  # Réponse immédiate : déclencher manuellement depuis GitHub
+
+jobs:
+  telegram-bot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4  # doit terminer avant le prochain cycle de 5 min
+
+    steps:
+      - name: Checkout du code
+        uses: actions/checkout@v4
+
+      - name: Restaurer l'état du bot (offset + historique)
+        uses: actions/cache@v4
+        with:
+          path: agents/data/bot_state.json
+          # Clé unique par run → la suivante restaure via restore-keys
+          key: telegram-bot-state-${{ github.run_number }}
+          restore-keys: |
+            telegram-bot-state-
+
+      - name: Installation Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installation des dépendances
+        run: pip install anthropic python-dotenv
+
+      - name: Traitement des messages Telegram
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: python -m agents.telegram_bot
