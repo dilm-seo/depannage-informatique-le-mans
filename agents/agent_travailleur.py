@@ -144,6 +144,18 @@ def _run_agentic(
                 logger.worker(tag, f"🏢 Prospects : {secteur} à {ville}")
                 tool_output = rechercher_entreprises_local(secteur, ville)
 
+            elif block.name == "envoyer_prospect_telegram":
+                from agents.tools.telegram import envoyer_prospect
+                inp = block.input
+                logger.worker(tag, f"📱 Telegram → {inp['nom_entreprise']} ({inp['telephone']})")
+                tool_output = envoyer_prospect(
+                    nom_entreprise=inp["nom_entreprise"],
+                    secteur=inp["secteur"],
+                    telephone=inp["telephone"],
+                    message_a_envoyer=inp["message_a_envoyer"],
+                    priorite=inp.get("priorite", "normale"),
+                )
+
             else:
                 tool_output = f"[ERREUR] Outil inconnu : {block.name}"
 

@@ -164,5 +164,6 @@ OUTIL_RECHERCHE_ENTREPRISES: dict = {
     },
 }
 
-# Liste complète des outils web pour les workers de prospection
-OUTILS_PROSPECTION: list[dict] = [OUTIL_RECHERCHE_WEB, OUTIL_RECHERCHE_ENTREPRISES]
+# Liste complète des outils pour les workers de prospection (web + Telegram)
+from agents.tools.telegram import OUTIL_TELEGRAM
+OUTILS_PROSPECTION: list[dict] = [OUTIL_RECHERCHE_WEB, OUTIL_RECHERCHE_ENTREPRISES, OUTIL_TELEGRAM]
