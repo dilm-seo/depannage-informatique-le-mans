@@ -33,6 +33,32 @@ jobs:
       - name: Installation des dépendances
         run: pip install anthropic python-dotenv
 
+      - name: Test connectivité API Anthropic
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python - <<'EOF'
+          import anthropic, sys
+          print(f"SDK version : {anthropic.__version__}")
+          if not __import__('os').environ.get('ANTHROPIC_API_KEY'):
+              print("ERREUR : ANTHROPIC_API_KEY non définie dans les secrets GitHub")
+              sys.exit(1)
+          try:
+              client = anthropic.Anthropic()
+              msg = client.messages.create(
+                  model="claude-haiku-4-5",
+                  max_tokens=10,
+                  messages=[{"role": "user", "content": "Dis OK"}]
+              )
+              print(f"API OK — réponse : {msg.content[0].text}")
+          except anthropic.AuthenticationError:
+              print("ERREUR : Clé API invalide — vérifiez ANTHROPIC_API_KEY dans les secrets")
+              sys.exit(1)
+          except Exception as e:
+              print(f"ERREUR connexion : {type(e).__name__}: {e}")
+              sys.exit(1)
+          EOF
+
       - name: Traitement des messages Telegram
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
