@@ -144,6 +144,17 @@ def _run_agentic(
                 logger.worker(tag, f"🏢 Prospects : {secteur} à {ville}")
                 tool_output = rechercher_entreprises_local(secteur, ville)
 
+            elif block.name == "envoyer_email_prospect":
+                from agents.tools.email import envoyer_email_prospect
+                inp = block.input
+                logger.worker(tag, f"📧 Email → {inp['destinataire_nom']} <{inp['destinataire_email']}>")
+                tool_output = envoyer_email_prospect(
+                    destinataire_email=inp["destinataire_email"],
+                    destinataire_nom=inp["destinataire_nom"],
+                    sujet=inp["sujet"],
+                    corps=inp["corps"],
+                )
+
             elif block.name == "envoyer_prospect_telegram":
                 from agents.tools.telegram import envoyer_prospect
                 inp = block.input
