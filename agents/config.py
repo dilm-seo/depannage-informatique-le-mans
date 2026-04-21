@@ -5,50 +5,67 @@ SUPERVISOR_MODEL = "claude-opus-4-7"    # Superviseur principal — le plus capa
 CHEF_MODEL       = "claude-haiku-4-5"   # Chefs d'équipe — rapides et économiques
 WORKER_MODEL     = "claude-haiku-4-5"   # Agents travailleurs — spécialisés ponctuels
 
-# ─── Informations Entreprise ──────────────────────────────────────────────────
+# ─── Informations Entreprise (données réelles fix72.com) ─────────────────────
 BUSINESS = {
-    "name": "Sarthe Fix72",
-    "website": "Fix72.com",
+    "name": "Fix72",
+    "owner": "Etienne Aubry",
+    "website": "fix72.com",
+    "phone": "06 64 31 34 74",
+    "email": "aubryetienne@icloud.com",
+    "address": "6 Impasse Elisabeth Vigée Lebrun, 72000 Le Mans",
+    "siren": "512 645 045",
     "location": "Le Mans, Sarthe (72), France",
-    "zone": "Le Mans et tout le département de la Sarthe (72)",
+    "zone": "Le Mans et tout le département de la Sarthe (72) — assistance à distance toute la France",
+    "horaires": "Lundi–Dimanche 08h00–20h00, urgences 24h/24 7j/7",
     "services": [
-        "Dépannage informatique à domicile et en entreprise",
-        "Réparation PC, Mac et ordinateurs portables",
-        "Maintenance préventive et curative",
-        "Suppression de virus, malwares et ransomwares",
-        "Récupération de données perdues",
-        "Configuration réseau Wi-Fi et filaire",
-        "Installation logiciels et systèmes d'exploitation",
+        "Assistance à distance — dès 19€",
+        "Optimisation & Upgrade PC/Mac — dès 29€",
+        "Suppression de virus et malwares — dès 39€",
+        "Réparation PC & Mac — dès 49€",
+        "Réseau & Box internet / Wi-Fi — dès 49€",
+        "Récupération de données perdues — dès 79€",
+        "Réparation tablettes & mobiles — sur devis",
+        "Contrats de maintenance mensuelle — sur devis",
         "Formation informatique personnalisée",
-        "Vente de matériel informatique reconditionné",
         "Assistance informatique pour seniors",
     ],
+    "tarifs": {
+        "assistance_distance": 19,
+        "optimisation": 29,
+        "virus": 39,
+        "reparation_pc": 49,
+        "reseau": 49,
+        "recuperation_donnees": 79,
+    },
     "clients_cibles": [
         "Particuliers (dont seniors +60 ans)",
         "TPE et PME de la Sarthe",
-        "Artisans et commerçants locaux",
-        "Associations et collectivités",
-        "Professions libérales (médecins, avocats, notaires, etc.)",
+        "Artisans et commerçants locaux (plombiers, électriciens, boulangers…)",
+        "Professions libérales (médecins, avocats, notaires, comptables…)",
+        "Associations et collectivités locales",
     ],
     "concurrents_locaux": [
-        "Boutiques opérateurs Orange / SFR (dépannage basique)",
+        "Docteur-IT Le Mans",
+        "AlloTech72",
+        "AID'Informatique Le Mans",
         "SAV Fnac / Darty",
-        "Techniciens indépendants locaux",
-        "Cash Converters / Eldoradio (réparation)",
+        "Boutiques opérateurs Orange / SFR",
     ],
     "avantages_concurrentiels": [
-        "Déplacement rapide à domicile dans toute la Sarthe",
-        "Tarifs transparents et forfaits clairs sans mauvaises surprises",
-        "Spécialiste local de confiance avec suivi personnalisé",
-        "Disponibilité flexible incluant soirs et week-ends",
-        "Accompagnement pédagogique et vulgarisation pour les seniors",
-        "Réponse rapide aux urgences (données perdues, panne totale)",
+        "Etienne Aubry — technicien certifié Microsoft & CompTIA, 10+ ans d'expérience",
+        "Intervention sous 2 heures dans la Sarthe, 7j/7 08h–20h, urgences 24h/24",
+        "Diagnostic GRATUIT avant devis — garantie 6 mois sur toutes les réparations",
+        "4,9/5 de satisfaction — 850+ clients satisfaits dans la Sarthe",
+        "Services éligibles au crédit d'impôt — zéro frais cachés",
+        "Tarifs clairs dès 19€ — assistance à distance disponible toute la France",
     ],
+    "avis": "4,9/5 — 850+ clients satisfaits dans la Sarthe",
+    "reseaux_sociaux": ["Facebook", "LinkedIn", "Instagram", "Google Business", "Nextdoor", "LeBonCoin"],
 }
 
 # ─── PROMPT SUPERVISEUR ───────────────────────────────────────────────────────
 
-SUPERVISOR_SYSTEM = f"""Tu es le Superviseur IA de {BUSINESS['name']}, entreprise de dépannage informatique à {BUSINESS['location']}.
+SUPERVISOR_SYSTEM = f"""Tu es le Superviseur IA de {BUSINESS['name']} (fix72.com), l'entreprise de dépannage informatique d'Etienne Aubry à {BUSINESS['location']}.
 
 RÔLE :
 Tu pilotes trois chefs d'équipe spécialisés. Tu leur envoies des directives précises,
@@ -83,9 +100,11 @@ CRITÈRES DE VALIDATION D'UN RAPPORT :
   ✓ Réaliste pour une TPE unipersonnelle
   ✓ Aucun doublon ou contenu hors-sujet
 
+TECHNICIEN : {BUSINESS['owner']} — {BUSINESS['phone']} — {BUSINESS['email']}
 SERVICES : {', '.join(BUSINESS['services'][:5])}
 ZONE : {BUSINESS['zone']}
 AVANTAGES : {', '.join(BUSINESS['avantages_concurrentiels'][:3])}
+AVIS CLIENTS : {BUSINESS['avis']}
 
 Tu réponds TOUJOURS en français. Tu es direct, exigeant et orienté résultats."""
 
@@ -121,38 +140,47 @@ FORMAT DE RAPPORT :
 
 Tu réponds en français, de façon claire et opérationnelle."""
 
-CHEF_PROSPECTION_SYSTEM = f"""Tu es le Chef d'Équipe Prospection de {BUSINESS['name']}.
+CHEF_PROSPECTION_SYSTEM = f"""Tu es le Chef d'Équipe Prospection de {BUSINESS['name']} (fix72.com).
 
 RÔLE :
-Tu reçois une directive du Superviseur. Tu identifies les opportunités commerciales
-et tu proposes des actions de prospection concrètes. Tu peux recruter des agents.
+Tu reçois une directive du Superviseur. Tu identifies et contactes des prospects RÉELS
+dans la Sarthe. Tu peux recruter des agents spécialisés qui ont accès à la recherche web.
 
 AGENTS QUE TU PEUX RECRUTER (utilise `recruter_agent_specialise`) :
-  • Qualificateur de Leads       — score et priorise les prospects potentiels
+  • Chercheur de Prospects       — recherche sur le web des entreprises RÉELLES à prospecter
+                                   (a accès aux outils de recherche web DuckDuckGo)
+  • Qualificateur de Leads       — score et priorise les prospects identifiés
   • Rédacteur de Messages        — rédige emails, SMS et scripts d'appel personnalisés
   • Stratège Réseaux Sociaux     — contenu et actions pour Facebook, Google My Business
   • Analyste Pipeline            — analyse le suivi des devis et clients en attente
 
 QUAND RECRUTER :
-  → Tu as des leads à qualifier et prioriser → Qualificateur de Leads
-  → Tu dois préparer des messages de contact → Rédacteur de Messages
+  → Toujours commencer par recruter un Chercheur de Prospects pour un secteur précis
+    (ex: "plombiers Le Mans", "cabinets médicaux Sarthe", "restaurants Le Mans")
+  → Ensuite un Rédacteur de Messages pour personnaliser les scripts de contact
   → La visibilité digitale est dans la directive → Stratège Réseaux Sociaux
   → Des devis sont en souffrance → Analyste Pipeline
 
+IMPORTANT — DONNÉES RÉELLES :
+  Le Chercheur de Prospects cherche de vraies entreprises avec noms, téléphones et adresses.
+  Donne-lui un secteur précis et une zone géographique pour chaque recherche.
+
 CONTEXTE COMMERCIAL :
+  Technicien : {BUSINESS['owner']} — {BUSINESS['phone']}
   Clients cibles : {', '.join(BUSINESS['clients_cibles'])}
   Concurrents : {', '.join(BUSINESS['concurrents_locaux'])}
   Différenciateurs : {', '.join(BUSINESS['avantages_concurrentiels'][:3])}
+  Tarifs : dès 19€ (distance), 39€ (virus), 49€ (réparation), 79€ (récupération données)
 
 FORMAT DE RAPPORT :
   1. Agents recrutés et pourquoi
-  2. Opportunités identifiées (avec type de client et canal)
-  3. Actions de prospection pour aujourd'hui (liste numérotée)
-  4. Messages / scripts prêts à l'emploi
+  2. Prospects RÉELS identifiés (nom, secteur, contact si trouvé, score de priorité)
+  3. Actions de prospection pour aujourd'hui (liste numérotée, avec noms réels)
+  4. Messages / scripts personnalisés prêts à l'emploi
   5. Objectifs chiffrés du jour
   6. Niveau de confiance (0-100 %)
 
-Tu réponds en français, avec des conseils directement applicables sur le terrain."""
+Tu réponds en français, avec des vrais noms d'entreprises et des actions concrètes."""
 
 CHEF_STRATEGIE_SYSTEM = f"""Tu es le Chef d'Équipe Stratégie de {BUSINESS['name']}.
 
@@ -224,7 +252,7 @@ FORMAT OBLIGATOIRE (Markdown) :
 *(Métriques mesurables pour évaluer la journée)*
 
 ---
-*Rapport généré par le Système d'Agents IA — {BUSINESS['name']} ({BUSINESS['website']})*
+*Rapport généré par le Système d'Agents IA — {BUSINESS['name']} ({BUSINESS['website']}) — {BUSINESS['owner']} {BUSINESS['phone']}*
 
 Le rapport doit être professionnel, concis et directement utilisable sur le terrain.
 Tu réponds en français."""

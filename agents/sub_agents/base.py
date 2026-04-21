@@ -80,6 +80,7 @@ class ChefEquipe:
     """Base pour planification, prospection et stratégie."""
 
     MAX_ITERATIONS = 8
+    worker_tools: list[dict] = []  # Outils passés aux workers recrutés (override dans les sous-classes)
 
     def __init__(self, nom: str, system_prompt: str) -> None:
         self.nom = nom
@@ -171,6 +172,7 @@ class ChefEquipe:
                         specialite=inp["specialite"],
                         tache=inp["tache"],
                         contexte=inp["contexte"],
+                        tools=self.worker_tools or None,
                     )
 
                     tool_results.append(
