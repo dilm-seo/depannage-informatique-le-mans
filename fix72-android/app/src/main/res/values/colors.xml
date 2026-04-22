@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="fix72_red">#E63946</color>
+    <color name="fix72_dark">#1D3557</color>
+    <color name="fix72_white">#FFFFFF</color>
+    <color name="status_bar_color">#C0000000</color>
+</resources>

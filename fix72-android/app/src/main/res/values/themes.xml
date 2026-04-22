@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.Fix72" parent="Theme.MaterialComponents.Light.NoActionBar">
+        <item name="colorPrimary">@color/fix72_red</item>
+        <item name="colorPrimaryVariant">@color/fix72_dark</item>
+        <item name="colorOnPrimary">@color/fix72_white</item>
+        <item name="android:statusBarColor">@color/fix72_red</item>
+        <item name="android:windowBackground">@color/fix72_white</item>
+    </style>
+
+    <style name="Theme.Fix72.Splash" parent="Theme.Fix72">
+        <item name="android:windowBackground">@color/fix72_red</item>
+        <item name="android:statusBarColor">@color/fix72_red</item>
+        <item name="android:navigationBarColor">@color/fix72_red</item>
+    </style>
+
+</resources>
